@@ -199,4 +199,40 @@ updateMult()
 cash.Changed:Connect(updateCash)
 rebirths.Changed:Connect(updateMult)
 
+-- ---- Show the right prompt per creature -----------------------------------
+-- Each creature carries an "OwnerUserId" attribute. We show the owner only the
+-- Sell prompt and everyone else only the Steal prompt, so the two never overlap.
+local Workspace = game:GetService("Workspace")
+
+local function bindPrompt(prompt: Instance)
+	if not prompt:IsA("ProximityPrompt") then
+		return
+	end
+	local model = prompt:FindFirstAncestorOfClass("Model")
+	if not model then
+		return
+	end
+
+	local function apply()
+		local ownerId = model:GetAttribute("OwnerUserId")
+		if ownerId == nil then
+			return
+		end
+		local isOwner = ownerId == player.UserId
+		if prompt.ActionText == "Sell" then
+			prompt.Enabled = isOwner
+		else
+			prompt.Enabled = not isOwner
+		end
+	end
+
+	apply()
+	model:GetAttributeChangedSignal("OwnerUserId"):Connect(apply)
+end
+
+for _, descendant in Workspace:GetDescendants() do
+	bindPrompt(descendant)
+end
+Workspace.DescendantAdded:Connect(bindPrompt)
+
 print("[YoinkEmpire] Client HUD ready ✨")

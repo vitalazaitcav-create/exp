@@ -72,7 +72,7 @@ local function createStand(base: Part, origin: Vector3, slotIndex: number): Part
 	stand.Anchored = true
 	stand.Material = Enum.Material.Metal
 	stand.Color = Color3.fromRGB(40, 40, 50)
-	stand.Position = origin + Vector3.new((column - 1) * 10, 2, (row == 0 and -8 or 8))
+	stand.Position = origin + Vector3.new((column - 1) * 10, 3, (row == 0 and -8 or 8))
 	stand.Parent = base
 	return stand
 end
@@ -86,12 +86,34 @@ local function createPlot(index: number)
 
 	local base = Instance.new("Part")
 	base.Name = "PlotBase" .. index
-	base.Size = Vector3.new(PLOT_SIZE, 1, PLOT_SIZE)
-	base.Position = origin + Vector3.new(0, 0.5, 0)
+	base.Size = Vector3.new(PLOT_SIZE, 2, PLOT_SIZE)
+	base.Position = origin + Vector3.new(0, 1, 0)
 	base.Anchored = true
 	base.Material = Enum.Material.SmoothPlastic
-	base.Color = Color3.fromRGB(60, 60, 72)
+	base.Color = Color3.fromRGB(70, 75, 95)
 	base.Parent = plotsFolder
+
+	-- Glowing accent border so each plot clearly reads as a base.
+	local trim = Instance.new("Part")
+	trim.Name = "Trim"
+	trim.Size = Vector3.new(PLOT_SIZE + 3, 1, PLOT_SIZE + 3)
+	trim.Position = origin + Vector3.new(0, 0.5, 0)
+	trim.Anchored = true
+	trim.Material = Enum.Material.Neon
+	trim.Color = Color3.fromRGB(90, 170, 255)
+	trim.Parent = base
+
+	-- Corner pillars to frame the plot.
+	for _, sign in { Vector2.new(1, 1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(-1, -1) } do
+		local pillar = Instance.new("Part")
+		pillar.Name = "Pillar"
+		pillar.Size = Vector3.new(2, 8, 2)
+		pillar.Anchored = true
+		pillar.Material = Enum.Material.SmoothPlastic
+		pillar.Color = Color3.fromRGB(90, 170, 255)
+		pillar.Position = origin + Vector3.new(sign.X * (PLOT_SIZE / 2 - 1), 6, sign.Y * (PLOT_SIZE / 2 - 1))
+		pillar.Parent = base
+	end
 
 	local signPart = Instance.new("Part")
 	signPart.Name = "Sign"
@@ -159,6 +181,8 @@ function PlotService.placeCreature(plot: Plot, slotIndex: number, name: string)
 
 	local model = Instance.new("Model")
 	model.Name = name
+	-- Lets each client decide which prompt to show (owner sees Sell, others Steal).
+	model:SetAttribute("OwnerUserId", plot.owner and plot.owner.UserId or 0)
 
 	local body = Instance.new("Part")
 	body.Name = "Body"
