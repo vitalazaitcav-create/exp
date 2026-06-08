@@ -8,6 +8,9 @@ local RunService = game:GetService("RunService")
 local FOLDER_NAME = "Remotes"
 local EVENT_NAMES = {
 	"RequestRoll", -- client -> server: "please roll me a creature"
+	"RequestLock", -- client -> server: "upgrade my base lock"
+	"RequestRebirth", -- client -> server: "rebirth me"
+	"ToggleDisguise", -- client -> server: "toggle my disguise"
 	"Notify", -- server -> client: toast message
 }
 

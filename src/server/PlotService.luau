@@ -1,17 +1,23 @@
 --!strict
--- PlotService: builds the bases, assigns one to each player, and owns the
--- creature stands. It is the single source of truth for "what creature sits
--- on which slot of which plot", which ShopService/StealService/IncomeService
--- all read from.
+-- PlotService: builds the bases, assigns one to each player, owns the creature
+-- stands, and is the single source of truth for "what creature sits on which
+-- slot of which plot". Also tracks each plot's lock level (steal defense) and
+-- keeps the player's saved base list in sync with DataService.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local DataService = require(script.Parent.DataService)
 
 local PlotService = {}
 
-type Slot = false | { name: string, model: Model, prompt: ProximityPrompt }
+type Slot = false | {
+	name: string,
+	model: Model,
+	prompt: ProximityPrompt,
+	sellPrompt: ProximityPrompt,
+}
 type Plot = {
 	index: number,
 	owner: Player?,
@@ -20,6 +26,7 @@ type Plot = {
 	spawnCFrame: CFrame,
 	stands: { Part },
 	slots: { Slot },
+	lockLevel: number,
 }
 
 local PLOT_COUNT = 6
@@ -29,12 +36,33 @@ local STAND_COLUMNS = 3
 
 local plots: { Plot } = {}
 local byOwner: { [Player]: Plot } = {}
--- Lets StealService map a triggered prompt back to its slot.
-PlotService.promptToSlot = {} :: { [ProximityPrompt]: { plot: Plot, index: number } }
+-- Lets StealService map a triggered prompt back to its slot + action kind.
+PlotService.promptToSlot = {} :: { [ProximityPrompt]: { plot: Plot, index: number, kind: string } }
 
 local plotsFolder: Folder
 
-local function createStand(plot: Plot, base: Part, origin: Vector3, slotIndex: number): Part
+-- Effective seconds to steal from this plot, including lock defense.
+local function stealTime(plot: Plot): number
+	return GameConfig.Settings.BaseStealTime + plot.lockLevel * GameConfig.Settings.LockTimeBonus
+end
+
+-- Pushes the plot's current creature list into the owner's saved data.
+local function syncProfile(plot: Plot)
+	if not plot.owner then
+		return
+	end
+	local list = {}
+	for index = 1, GameConfig.Settings.PlotSlots do
+		local slot = plot.slots[index]
+		if slot then
+			table.insert(list, slot.name)
+		end
+	end
+	DataService.setCreatures(plot.owner, list)
+end
+PlotService.syncProfile = syncProfile
+
+local function createStand(base: Part, origin: Vector3, slotIndex: number): Part
 	local column = (slotIndex - 1) % STAND_COLUMNS
 	local row = math.floor((slotIndex - 1) / STAND_COLUMNS)
 
@@ -44,8 +72,7 @@ local function createStand(plot: Plot, base: Part, origin: Vector3, slotIndex: n
 	stand.Anchored = true
 	stand.Material = Enum.Material.Metal
 	stand.Color = Color3.fromRGB(40, 40, 50)
-	stand.Position = origin
-		+ Vector3.new((column - 1) * 10, 2, (row == 0 and -8 or 8))
+	stand.Position = origin + Vector3.new((column - 1) * 10, 2, (row == 0 and -8 or 8))
 	stand.Parent = base
 	return stand
 end
@@ -66,7 +93,6 @@ local function createPlot(index: number)
 	base.Color = Color3.fromRGB(60, 60, 72)
 	base.Parent = plotsFolder
 
-	-- Floating name sign over the base.
 	local signPart = Instance.new("Part")
 	signPart.Name = "Sign"
 	signPart.Size = Vector3.new(1, 1, 1)
@@ -99,17 +125,17 @@ local function createPlot(index: number)
 		spawnCFrame = CFrame.new(origin + Vector3.new(0, 5, 14)),
 		stands = {},
 		slots = {},
+		lockLevel = 0,
 	}
 
 	for slotIndex = 1, GameConfig.Settings.PlotSlots do
-		plot.stands[slotIndex] = createStand(plot, base, origin, slotIndex)
+		plot.stands[slotIndex] = createStand(base, origin, slotIndex)
 		plot.slots[slotIndex] = false
 	end
 
 	plots[index] = plot
 end
 
--- Returns the first empty slot index of a plot, or nil if full.
 function PlotService.findFreeSlot(plot: Plot): number?
 	for index = 1, GameConfig.Settings.PlotSlots do
 		if not plot.slots[index] then
@@ -123,7 +149,6 @@ function PlotService.getPlotByOwner(player: Player): Plot?
 	return byOwner[player]
 end
 
--- Spawns a creature model on a stand and wires its steal prompt.
 function PlotService.placeCreature(plot: Plot, slotIndex: number, name: string)
 	local creature = GameConfig.getCreature(name)
 	if not creature then
@@ -162,29 +187,64 @@ function PlotService.placeCreature(plot: Plot, slotIndex: number, name: string)
 	nameLabel.Text = string.format("%s\n[%s]", name, creature.rarity)
 	nameLabel.Parent = billboard
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Steal"
-	prompt.ObjectText = name
-	prompt.HoldDuration = GameConfig.Settings.BaseStealTime
-	prompt.RequiresLineOfSight = false
-	prompt.MaxActivationDistance = 10
-	prompt.Parent = body
+	-- Thieves hold this to steal.
+	local stealPrompt = Instance.new("ProximityPrompt")
+	stealPrompt.ActionText = "Steal"
+	stealPrompt.ObjectText = name
+	stealPrompt.HoldDuration = stealTime(plot)
+	stealPrompt.KeyboardKeyCode = Enum.KeyCode.E
+	stealPrompt.RequiresLineOfSight = false
+	stealPrompt.MaxActivationDistance = 10
+	stealPrompt.Parent = body
+
+	-- The owner presses this to sell.
+	local sellPrompt = Instance.new("ProximityPrompt")
+	sellPrompt.ActionText = "Sell"
+	sellPrompt.ObjectText = name
+	sellPrompt.HoldDuration = 0
+	sellPrompt.KeyboardKeyCode = Enum.KeyCode.F
+	sellPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	sellPrompt.RequiresLineOfSight = false
+	sellPrompt.MaxActivationDistance = 10
+	sellPrompt.Parent = body
 
 	model.Parent = plot.base
 
-	plot.slots[slotIndex] = { name = name, model = model, prompt = prompt }
-	PlotService.promptToSlot[prompt] = { plot = plot, index = slotIndex }
+	plot.slots[slotIndex] = { name = name, model = model, prompt = stealPrompt, sellPrompt = sellPrompt }
+	PlotService.promptToSlot[stealPrompt] = { plot = plot, index = slotIndex, kind = "steal" }
+	PlotService.promptToSlot[sellPrompt] = { plot = plot, index = slotIndex, kind = "sell" }
+
+	syncProfile(plot)
 end
 
--- Removes whatever creature is on a slot (used by selling/stealing/leaving).
 function PlotService.removeCreature(plot: Plot, slotIndex: number)
 	local slot = plot.slots[slotIndex]
 	if not slot then
 		return
 	end
 	PlotService.promptToSlot[slot.prompt] = nil
+	PlotService.promptToSlot[slot.sellPrompt] = nil
 	slot.model:Destroy()
 	plot.slots[slotIndex] = false
+	syncProfile(plot)
+end
+
+function PlotService.clearBase(plot: Plot)
+	for index = 1, GameConfig.Settings.PlotSlots do
+		PlotService.removeCreature(plot, index)
+	end
+end
+
+-- Raises the plot's lock level and re-tunes every existing steal prompt.
+function PlotService.setLockLevel(plot: Plot, level: number)
+	plot.lockLevel = level
+	local time = stealTime(plot)
+	for index = 1, GameConfig.Settings.PlotSlots do
+		local slot = plot.slots[index]
+		if slot then
+			slot.prompt.HoldDuration = time
+		end
+	end
 end
 
 local function assignPlot(player: Player)
@@ -204,10 +264,9 @@ local function freePlot(player: Player)
 	if not plot then
 		return
 	end
-	for index = 1, GameConfig.Settings.PlotSlots do
-		PlotService.removeCreature(plot, index)
-	end
+	PlotService.clearBase(plot)
 	plot.owner = nil
+	plot.lockLevel = 0
 	plot.label.Text = "Empty Plot"
 	byOwner[player] = nil
 end
@@ -229,8 +288,24 @@ end
 
 local function onPlayerAdded(player: Player)
 	assignPlot(player)
+	local plot = byOwner[player]
+
+	-- Restore saved lock + creatures once data is loaded.
+	task.spawn(function()
+		DataService.waitForLoad(player)
+		if not plot or byOwner[player] ~= plot then
+			return
+		end
+		PlotService.setLockLevel(plot, DataService.getLockLevel(player))
+		for _, name in DataService.getCreatures(player) do
+			local free = PlotService.findFreeSlot(plot)
+			if free then
+				PlotService.placeCreature(plot, free, name)
+			end
+		end
+	end)
+
 	player.CharacterAdded:Connect(function(character)
-		-- Wait until the root part exists before teleporting.
 		character:WaitForChild("HumanoidRootPart")
 		task.wait()
 		teleportToPlot(player)

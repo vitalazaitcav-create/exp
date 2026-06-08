@@ -25,7 +25,8 @@ function IncomeService.start()
 						end
 					end
 					if income > 0 then
-						DataService.addCash(player, income)
+						local total = math.floor(income * DataService.getIncomeMultiplier(player))
+						DataService.addCash(player, total)
 					end
 				end
 			end

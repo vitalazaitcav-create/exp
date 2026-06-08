@@ -11,7 +11,25 @@ GameConfig.Settings = {
 	BaseStealTime = 6, -- seconds a thief must hold to steal a creature
 	StealCooldown = 8, -- seconds before a player can steal again
 	RollCost = 50, -- cash to roll one creature from the gacha
-	SellMultiplier = 25, -- value = income * this, used when a stolen creature has nowhere to go
+	SellMultiplier = 25, -- sell value = creature income * this
+
+	-- Base defense (locks): each level adds steal time, cost grows per level.
+	LockCostBase = 200,
+	LockCostScale = 1.8,
+	LockTimeBonus = 2, -- extra seconds to steal, per lock level
+	LockMaxLevel = 5,
+
+	-- Rebirth: reset progress for a permanent income multiplier.
+	RebirthBaseCost = 5000,
+	RebirthCostScale = 2.5,
+	RebirthMultPerLevel = 0.5, -- income x = 1 + rebirths * this
+
+	-- Disguise (our signature mechanic): sneak onto bases as a crate.
+	DisguiseWalkSpeed = 10,
+	DisguiseDuration = 20, -- auto-reveal after this many seconds
+	DisguiseCooldown = 12,
+
+	AutosaveInterval = 60, -- seconds between background saves
 }
 
 -- Rarity table. `weight` drives the gacha odds, `mult` is cash/second the creature earns.
@@ -91,6 +109,21 @@ function GameConfig.roll()
 
 	local list = byRarity[chosenRarity]
 	return list[math.random(1, #list)]
+end
+
+-- Cost of the next lock level given the current level.
+function GameConfig.lockCost(level: number): number
+	return math.floor(GameConfig.Settings.LockCostBase * GameConfig.Settings.LockCostScale ^ level)
+end
+
+-- Cost of the next rebirth given how many the player already has.
+function GameConfig.rebirthCost(rebirths: number): number
+	return math.floor(GameConfig.Settings.RebirthBaseCost * GameConfig.Settings.RebirthCostScale ^ rebirths)
+end
+
+-- Income multiplier granted by rebirths.
+function GameConfig.incomeMultiplier(rebirths: number): number
+	return 1 + rebirths * GameConfig.Settings.RebirthMultPerLevel
 end
 
 return GameConfig

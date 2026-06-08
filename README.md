@@ -49,6 +49,24 @@ creatures, watch your cash climb, then walk to another base and hold the
 > **Test stealing with 2 players:** Test → Clients and Servers → set Players
 > to 2 → Start. Each window gets its own base so you can rob yourself.
 
+## Controls & features
+
+| Action | How |
+| ------ | --- |
+| Roll a creature | **🎲 ROLL** button |
+| Steal a rival's creature | Walk up + **hold E** |
+| Sell your own creature | Walk up + **press F** |
+| Upgrade base lock (defense) | **🔒 Buy Lock** button |
+| Rebirth (reset for x income) | **♻️ Rebirth** button |
+| Disguise as a crate | **🥷 Disguise** button |
+
+### Saving (DataStore)
+
+Progress (cash, creatures, locks, rebirths) is saved via `DataStoreService`.
+For saves to work **in Studio**, enable
+*Game Settings → Security → Enable Studio Access to API Services*. Without it
+the game still runs, but progress lasts only for the session.
+
 ## Project layout
 
 ```
