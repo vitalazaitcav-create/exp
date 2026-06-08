@@ -6,11 +6,23 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local DataService = require(script.Parent.DataService)
+local CreatureModel = require(script.Parent.CreatureModel)
 
 local PlotService = {}
+
+-- A distinct accent color per plot so bases are easy to tell apart.
+local PLOT_COLORS = {
+	Color3.fromRGB(90, 170, 255),
+	Color3.fromRGB(255, 120, 140),
+	Color3.fromRGB(120, 230, 140),
+	Color3.fromRGB(255, 200, 70),
+	Color3.fromRGB(190, 130, 255),
+	Color3.fromRGB(255, 150, 80),
+}
 
 type Slot = false | {
 	name: string,
@@ -83,6 +95,7 @@ local function createPlot(index: number)
 		0,
 		0
 	)
+	local accent = PLOT_COLORS[((index - 1) % #PLOT_COLORS) + 1]
 
 	local base = Instance.new("Part")
 	base.Name = "PlotBase" .. index
@@ -100,7 +113,7 @@ local function createPlot(index: number)
 	trim.Position = origin + Vector3.new(0, 0.5, 0)
 	trim.Anchored = true
 	trim.Material = Enum.Material.Neon
-	trim.Color = Color3.fromRGB(90, 170, 255)
+	trim.Color = accent
 	trim.Parent = base
 
 	-- Corner pillars to frame the plot.
@@ -110,7 +123,7 @@ local function createPlot(index: number)
 		pillar.Size = Vector3.new(2, 8, 2)
 		pillar.Anchored = true
 		pillar.Material = Enum.Material.SmoothPlastic
-		pillar.Color = Color3.fromRGB(90, 170, 255)
+		pillar.Color = accent
 		pillar.Position = origin + Vector3.new(sign.X * (PLOT_SIZE / 2 - 1), 6, sign.Y * (PLOT_SIZE / 2 - 1))
 		pillar.Parent = base
 	end
@@ -136,6 +149,7 @@ local function createPlot(index: number)
 	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.4
+	label.TextColor3 = accent
 	label.Text = "Empty Plot"
 	label.Parent = billboard
 
@@ -179,21 +193,13 @@ function PlotService.placeCreature(plot: Plot, slotIndex: number, name: string)
 	local rarity = GameConfig.Rarities[creature.rarity]
 	local stand = plot.stands[slotIndex]
 
-	local model = Instance.new("Model")
+	local model = CreatureModel.build(rarity, stand.CFrame * CFrame.new(0, 3, 0))
 	model.Name = name
 	-- Lets each client decide which prompt to show (owner sees Sell, others Steal).
 	model:SetAttribute("OwnerUserId", plot.owner and plot.owner.UserId or 0)
-
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(3, 3, 3)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Material = Enum.Material.Neon
-	body.Color = rarity.color
-	body.CFrame = stand.CFrame * CFrame.new(0, 3, 0)
-	body.Parent = model
-	model.PrimaryPart = body
+	-- Tag so the client can gently spin it.
+	CollectionService:AddTag(model, "YoinkCreature")
+	local body = model.PrimaryPart :: BasePart
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromScale(6, 2)

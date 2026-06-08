@@ -12,6 +12,7 @@ require(ReplicatedStorage.Shared.Remotes)
 
 local startup = {
 	{ name = "DataService", module = require(script.DataService) },
+	{ name = "MonetizationService", module = require(script.MonetizationService) },
 	{ name = "PlotService", module = require(script.PlotService) },
 	{ name = "IncomeService", module = require(script.IncomeService) },
 	{ name = "ShopService", module = require(script.ShopService) },

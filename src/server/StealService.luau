@@ -80,10 +80,8 @@ local function handleSteal(entry, player: Player)
 	end
 
 	if sourcePlot.owner then
-		Remotes.Notify:FireClient(
-			sourcePlot.owner,
-			string.format("%s stole your %s!", player.Name, creatureName)
-		)
+		-- Alarm drives the red flash + siren on the victim's screen.
+		Remotes.Alarm:FireClient(sourcePlot.owner, player.Name, creatureName)
 	end
 end
 

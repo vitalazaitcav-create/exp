@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
+local MonetizationService = require(script.Parent.MonetizationService)
 
 local IncomeService = {}
 
@@ -25,7 +26,11 @@ function IncomeService.start()
 						end
 					end
 					if income > 0 then
-						local total = math.floor(income * DataService.getIncomeMultiplier(player))
+						local total = math.floor(
+							income
+								* DataService.getIncomeMultiplier(player)
+								* MonetizationService.getIncomeBonus(player)
+						)
 						DataService.addCash(player, total)
 					end
 				end

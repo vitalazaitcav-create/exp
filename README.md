@@ -59,6 +59,15 @@ creatures, watch your cash climb, then walk to another base and hold the
 | Upgrade base lock (defense) | **🔒 Buy Lock** button |
 | Rebirth (reset for x income) | **♻️ Rebirth** button |
 | Disguise as a crate | **🥷 Disguise** button |
+| Buy VIP (x2 income) | **💎 VIP x2** button |
+
+### Monetization setup
+
+In the Creator Dashboard create a **VIP game pass** and any **cash developer
+products**, then paste their IDs into `GameConfig.Monetization` (in
+`src/shared/GameConfig.luau`). Map each product id to a cash amount in
+`ProductCash`. Until IDs are set, the VIP button shows a "coming soon" message
+and everything else works normally.
 
 ### Saving (DataStore)
 

@@ -140,6 +140,9 @@ end)
 makeAction("🥷 Disguise", Color3.fromRGB(60, 70, 90), function()
 	Remotes.ToggleDisguise:FireServer()
 end)
+makeAction("💎 VIP x2", Color3.fromRGB(0, 190, 140), function()
+	Remotes.PromptPurchase:FireServer("VIP")
+end)
 
 -- ---- Toast feed (top-center) ----------------------------------------------
 local toastHolder = Instance.new("Frame")
@@ -180,6 +183,44 @@ local function showToast(message: string)
 end
 
 Remotes.Notify.OnClientEvent:Connect(showToast)
+
+-- ---- Robbery alarm: red flash + siren + banner --------------------------
+local SoundService = game:GetService("SoundService")
+
+local alarmSound = Instance.new("Sound")
+alarmSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+alarmSound.Volume = 1
+alarmSound.Parent = SoundService
+
+local flash = Instance.new("Frame")
+flash.Size = UDim2.fromScale(1, 1)
+flash.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+flash.BackgroundTransparency = 1
+flash.ZIndex = 50
+flash.Parent = gui
+
+local robbedLabel = Instance.new("TextLabel")
+robbedLabel.Size = UDim2.fromOffset(700, 70)
+robbedLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+robbedLabel.Position = UDim2.new(0.5, 0, 0.32, 0)
+robbedLabel.BackgroundTransparency = 1
+robbedLabel.Font = Enum.Font.FredokaOne
+robbedLabel.TextColor3 = Color3.fromRGB(255, 230, 230)
+robbedLabel.TextStrokeTransparency = 0.2
+robbedLabel.TextScaled = true
+robbedLabel.TextTransparency = 1
+robbedLabel.ZIndex = 51
+robbedLabel.Text = ""
+robbedLabel.Parent = gui
+
+Remotes.Alarm.OnClientEvent:Connect(function(thiefName: string, creatureName: string)
+	robbedLabel.Text = string.format("🚨 %s stole your %s!", thiefName, creatureName)
+	flash.BackgroundTransparency = 0.45
+	robbedLabel.TextTransparency = 0
+	alarmSound:Play()
+	TweenService:Create(flash, TweenInfo.new(0.9), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(robbedLabel, TweenInfo.new(1.4), { TextTransparency = 1 }):Play()
+end)
 
 -- ---- Bind leaderstats -----------------------------------------------------
 local leaderstats = player:WaitForChild("leaderstats")
@@ -234,5 +275,17 @@ for _, descendant in Workspace:GetDescendants() do
 	bindPrompt(descendant)
 end
 Workspace.DescendantAdded:Connect(bindPrompt)
+
+-- ---- Gently spin every creature for some life ------------------------------
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+
+RunService.Heartbeat:Connect(function(dt)
+	for _, model in CollectionService:GetTagged("YoinkCreature") do
+		if model:IsA("Model") and model.PrimaryPart then
+			model:PivotTo(model:GetPivot() * CFrame.Angles(0, math.rad(45 * dt), 0))
+		end
+	end
+end)
 
 print("[YoinkEmpire] Client HUD ready ✨")

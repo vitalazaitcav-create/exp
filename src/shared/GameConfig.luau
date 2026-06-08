@@ -126,4 +126,15 @@ function GameConfig.incomeMultiplier(rebirths: number): number
 	return 1 + rebirths * GameConfig.Settings.RebirthMultPerLevel
 end
 
+-- Monetization. Create these in the Creator Dashboard, then paste the IDs here.
+-- Until you do, the game runs fine and the VIP button just shows a "coming
+-- soon" message.
+GameConfig.Monetization = {
+	GamePasses = {
+		VIP = 0, -- set your VIP game pass id (grants x2 income)
+	},
+	-- Map a Developer Product id to the cash it grants, e.g. [1234567] = 1000.
+	ProductCash = {} :: { [number]: number },
+}
+
 return GameConfig

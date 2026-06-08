@@ -11,7 +11,9 @@ local EVENT_NAMES = {
 	"RequestLock", -- client -> server: "upgrade my base lock"
 	"RequestRebirth", -- client -> server: "rebirth me"
 	"ToggleDisguise", -- client -> server: "toggle my disguise"
+	"PromptPurchase", -- client -> server: "open a purchase prompt"
 	"Notify", -- server -> client: toast message
+	"Alarm", -- server -> client: you are being robbed!
 }
 
 local Remotes = {}
