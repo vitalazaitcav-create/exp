@@ -1,19 +1,31 @@
 --!strict
--- Server bootstrap for Yoink Empire. Order matters: DataService sets up
--- leaderstats first so plot assignment and income have data to work with.
+-- Server bootstrap for Yoink Empire.
+--
+-- We create the RemoteEvents FIRST so clients never hang waiting for them, then
+-- start each service inside a pcall so a single failure can't take down the
+-- rest of the game (e.g. plots still build even if saving has an issue).
 
-local DataService = require(script.DataService)
-local PlotService = require(script.PlotService)
-local IncomeService = require(script.IncomeService)
-local ShopService = require(script.ShopService)
-local DisguiseService = require(script.DisguiseService)
-local StealService = require(script.StealService)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-DataService.start()
-PlotService.start()
-IncomeService.start()
-ShopService.start()
-DisguiseService.start()
-StealService.start()
+-- Creating the Remotes folder up front (server side).
+require(ReplicatedStorage.Shared.Remotes)
 
-print("[YoinkEmpire] Server started 🎮")
+local startup = {
+	{ name = "DataService", module = require(script.DataService) },
+	{ name = "PlotService", module = require(script.PlotService) },
+	{ name = "IncomeService", module = require(script.IncomeService) },
+	{ name = "ShopService", module = require(script.ShopService) },
+	{ name = "DisguiseService", module = require(script.DisguiseService) },
+	{ name = "StealService", module = require(script.StealService) },
+}
+
+for _, entry in startup do
+	local ok, err = pcall(entry.module.start)
+	if ok then
+		print("[YoinkEmpire] " .. entry.name .. " started")
+	else
+		warn("[YoinkEmpire] " .. entry.name .. " FAILED: " .. tostring(err))
+	end
+end
+
+print("[YoinkEmpire] Server boot complete 🎮")

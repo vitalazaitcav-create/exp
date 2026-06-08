@@ -16,7 +16,26 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 local DataService = {}
 
-local store = DataStoreService:GetDataStore("YoinkEmpire_v1")
+-- Lazily resolve the DataStore. If the API is unavailable (e.g. Studio access
+-- to API services is off), getStore() returns nil and the game runs with
+-- session-only data instead of crashing.
+local store: GlobalDataStore? = nil
+local storeResolved = false
+
+local function getStore(): GlobalDataStore?
+	if not storeResolved then
+		storeResolved = true
+		local ok, result = pcall(function()
+			return DataStoreService:GetDataStore("YoinkEmpire_v1")
+		end)
+		if ok then
+			store = result
+		else
+			warn("[DataService] DataStore unavailable, running session-only: " .. tostring(result))
+		end
+	end
+	return store
+end
 
 type State = {
 	cash: IntValue,
@@ -42,11 +61,14 @@ end
 local function load(player: Player)
 	local key = "Player_" .. player.UserId
 	local data
-	local ok, err = pcall(function()
-		data = store:GetAsync(key)
-	end)
-	if not ok then
-		warn("[DataService] load failed for " .. player.Name .. ": " .. tostring(err))
+	local s = getStore()
+	if s then
+		local ok, err = pcall(function()
+			data = s:GetAsync(key)
+		end)
+		if not ok then
+			warn("[DataService] load failed for " .. player.Name .. ": " .. tostring(err))
+		end
 	end
 
 	data = data or defaultData()
@@ -98,8 +120,12 @@ local function save(player: Player)
 		lockLevel = s.lockLevel,
 		creatures = s.creatures,
 	}
+	local s = getStore()
+	if not s then
+		return
+	end
 	local ok, err = pcall(function()
-		store:SetAsync("Player_" .. player.UserId, data)
+		s:SetAsync("Player_" .. player.UserId, data)
 	end)
 	if not ok then
 		warn("[DataService] save failed for " .. player.Name .. ": " .. tostring(err))
